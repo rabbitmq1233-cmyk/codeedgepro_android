@@ -53,6 +53,10 @@ export function ChatListScreen({ route, navigation }: any) {
     navigation.navigate('CreateChat', { projectId });
   };
 
+  const navigateToExperts = () => {
+    navigation.navigate('ManageExperts', { projectId });
+  };
+
   const renderChat = ({ item }: { item: Chat }) => (
     <TouchableOpacity
       style={styles.chatCard}
@@ -88,6 +92,11 @@ export function ChatListScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.expertBar} onPress={navigateToExperts}>
+        <Ionicons name="bulb-outline" size={16} color={COLORS.primary} />
+        <Text style={styles.expertBarText}>Manage Experts</Text>
+        <Ionicons name="chevron-forward" size={16} color={COLORS.textTertiary} />
+      </TouchableOpacity>
       <FlatList
         data={chats}
         renderItem={renderChat}
@@ -122,6 +131,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  expertBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  expertBarText: {
+    flex: 1,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '500',
+    color: COLORS.primary,
   },
   list: {
     padding: SPACING.lg,

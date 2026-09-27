@@ -18,6 +18,7 @@ import { CreateProjectScreen } from '../screens/app/CreateProjectScreen';
 import { ChatListScreen } from '../screens/app/ChatListScreen';
 import { CreateChatScreen } from '../screens/app/CreateChatScreen';
 import { ChatDetailScreen } from '../screens/app/ChatDetailScreen';
+import { ManageExpertsScreen } from '../screens/app/ManageExpertsScreen';
 import { ProfileScreen } from '../screens/app/ProfileScreen';
 import { SearchScreen } from '../screens/app/SearchScreen';
 import { SettingsScreen } from '../screens/app/SettingsScreen';
@@ -71,6 +72,11 @@ function ProjectsStackScreen() {
         name="ChatDetail"
         component={ChatDetailScreen}
         options={({ route }) => ({ title: route.params?.chatTitle || 'Chat' })}
+      />
+      <ProjectsStack.Screen
+        name="ManageExperts"
+        component={ManageExpertsScreen}
+        options={{ title: 'Manage Experts' }}
       />
     </ProjectsStack.Navigator>
   );

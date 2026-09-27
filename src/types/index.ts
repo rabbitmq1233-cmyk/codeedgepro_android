@@ -27,6 +27,7 @@ export type ProjectsStackParamList = {
   ChatList: { projectId: string; projectName: string };
   CreateChat: { projectId: string };
   ChatDetail: { chatId: string; chatTitle: string; projectId: string };
+  ManageExperts: { projectId: string };
 };
 
 export type ProfileStackParamList = {
