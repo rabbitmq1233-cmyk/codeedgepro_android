@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { apiClient } from '../../services/api';
-import type { Expert } from '../../types';
+import type { Expert, ExpertTopicsResponse } from '../../types';
 
 export function ExpertDetailScreen({ route }: any) {
   const { expertId } = route.params;
-  const [expert, setExpert] = useState<any>(null);
-  const [topics, setTopics] = useState<any>(null);
+  const [expert, setExpert] = useState<Expert | null>(null);
+  const [topics, setTopics] = useState<ExpertTopicsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -56,10 +56,10 @@ export function ExpertDetailScreen({ route }: any) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Text style={styles.name}>{expert.name}</Text>
-        <Text style={styles.version}>{expert.version}</Text>
+        <Text style={styles.version}>{expert.domain}</Text>
         <View style={styles.ratingContainer}>
-          <Text style={styles.rating}>⭐ {expert.rating?.toFixed(1) || 'N/A'}</Text>
-          <Text style={styles.coverage}>Coverage: {expert.coverage_percentage}%</Text>
+          <Text style={styles.rating}>⭐ {expert.avg_rating?.toFixed(1) || 'N/A'}</Text>
+          <Text style={styles.coverage}>Depth: {expert.avg_depth_level?.toFixed(1)}</Text>
         </View>
       </View>
 
@@ -68,22 +68,15 @@ export function ExpertDetailScreen({ route }: any) {
         <Text style={styles.description}>{expert.description}</Text>
       </View>
 
-      {expert.charter && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Charter</Text>
-          <Text style={styles.text}>{expert.charter}</Text>
-        </View>
-      )}
-
       {topics && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Topics Covered ({topics.topics?.length || 0})</Text>
-          {topics.topics?.map((topic: any, idx: number) => (
+          {topics.topics?.map((topic, idx: number) => (
             <View key={idx} style={styles.topicItem}>
-              <Text style={styles.topicName}>{topic.name}</Text>
+              <Text style={styles.topicName}>{topic.topic}</Text>
               <View style={styles.topicMeta}>
-                <Text style={styles.topicCoverage}>Coverage: {topic.coverage}%</Text>
-                <Text style={styles.topicDepth}>Depth: {topic.depth}</Text>
+                <Text style={styles.topicCoverage}>Chunks: {topic.chunk_count}</Text>
+                <Text style={styles.topicDepth}>Depth: {topic.depth_level}</Text>
               </View>
             </View>
           ))}
@@ -93,24 +86,20 @@ export function ExpertDetailScreen({ route }: any) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Statistics</Text>
         <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Status:</Text>
-          <Text style={styles.statValue}>{expert.active ? '✅ Active' : '⚠️ Inactive'}</Text>
+          <Text style={styles.statLabel}>Total Chunks:</Text>
+          <Text style={styles.statValue}>{expert.total_chunks?.toLocaleString()}</Text>
         </View>
         <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Usage Count:</Text>
-          <Text style={styles.statValue}>{expert.usage_count?.toLocaleString()}</Text>
+          <Text style={styles.statLabel}>Total Topics:</Text>
+          <Text style={styles.statValue}>{expert.total_topics}</Text>
         </View>
         <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Last Updated:</Text>
+          <Text style={styles.statLabel}>Created:</Text>
           <Text style={styles.statValue}>
-            {new Date(expert.last_updated).toLocaleDateString()}
+            {expert.created_at ? new Date(expert.created_at).toLocaleDateString() : 'N/A'}
           </Text>
         </View>
       </View>
-
-      <TouchableOpacity style={styles.actionButton}>
-        <Text style={styles.actionButtonText}>Add to Project</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }

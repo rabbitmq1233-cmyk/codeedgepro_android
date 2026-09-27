@@ -9,35 +9,40 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { apiClient } from '../../services/api';
+import type { SearchResult } from '../../types';
 
 export function SearchScreen(): any {
   const [searchText, setSearchText] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
   const handleSearch = async () => {
-    if (!searchText.trim()) return;
+    const q = searchText.trim();
+    if (q.length < 2) return; // backend requires >=2 chars
 
     try {
       setIsLoading(true);
       setHasSearched(true);
-      const data = await apiClient.searchChats(searchText);
-      setResults(data);
+      const data = await apiClient.searchChats(q);
+      setResults(data.results);
     } catch (error) {
       console.error('Search failed:', error);
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderResult = ({ item }: any) => (
+  const renderResult = ({ item }: { item: SearchResult }) => (
     <View style={styles.resultCard}>
-      <Text style={styles.resultTitle}>{item.title}</Text>
+      <Text style={styles.resultTitle}>{item.chat_title}</Text>
       <Text style={styles.resultSnippet} numberOfLines={2}>
-        {item.snippet}
+        {item.project_name} · {item.message_count} messages
       </Text>
-      <Text style={styles.resultScore}>Relevance: {(item.relevance_score * 100).toFixed(0)}%</Text>
+      <Text style={styles.resultScore}>
+        {item.title_match ? 'Title match' : `${item.content_matches} content matches`}
+      </Text>
     </View>
   );
 
@@ -64,7 +69,7 @@ export function SearchScreen(): any {
         <FlatList
           data={results}
           renderItem={renderResult}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.chat_id}
           contentContainerStyle={styles.resultsList}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

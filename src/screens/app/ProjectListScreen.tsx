@@ -29,7 +29,7 @@ export function ProjectListScreen({ navigation }: any) {
   const loadProjects = async () => {
     try {
       setIsLoading(true);
-      const data = await apiClient.getProjects(0, 20);
+      const data = await apiClient.getProjects();
       setProjects(data);
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -41,7 +41,7 @@ export function ProjectListScreen({ navigation }: any) {
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const data = await apiClient.getProjects(0, 20);
+      const data = await apiClient.getProjects();
       setProjects(data);
     } finally {
       setIsRefreshing(false);
@@ -74,11 +74,11 @@ export function ProjectListScreen({ navigation }: any) {
       <View style={styles.projectMeta}>
         <View style={styles.metaItem}>
           <Ionicons name="bulb-outline" size={14} color={COLORS.textTertiary} />
-          <Text style={styles.metaText}>{item.expert_count} Experts</Text>
+          <Text style={styles.metaText}>{item.experts?.length ?? 0} Experts</Text>
         </View>
         <View style={styles.metaItem}>
-          <Ionicons name="chatbubble-outline" size={14} color={COLORS.textTertiary} />
-          <Text style={styles.metaText}>{item.chat_count} Chats</Text>
+          <Ionicons name="git-branch-outline" size={14} color={COLORS.textTertiary} />
+          <Text style={styles.metaText}>{item.repo_connected ? 'Repo linked' : 'No repo'}</Text>
         </View>
       </View>
     </TouchableOpacity>

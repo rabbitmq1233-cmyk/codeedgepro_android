@@ -28,15 +28,12 @@ export function CreateChatScreen({ route, navigation }: any) {
 
     try {
       setIsLoading(true);
-      const chat = await apiClient.createChat(
-        projectId,
-        title.trim(),
-        description.trim() || undefined
-      );
+      const chat = await apiClient.createChat(projectId, title.trim());
       // Navigate to the newly created chat
       navigation.replace('ChatDetail', {
         chatId: chat.id,
         chatTitle: chat.title,
+        projectId,
       });
     } catch (error: any) {
       Alert.alert(

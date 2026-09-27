@@ -22,9 +22,9 @@ export function ProfileScreen(): any {
     <View style={styles.container}>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{user?.fullName?.charAt(0).toUpperCase()}</Text>
         </View>
-        <Text style={styles.name}>{user?.name}</Text>
+        <Text style={styles.name}>{user?.fullName}</Text>
         <Text style={styles.email}>{user?.email}</Text>
         <View style={styles.roleContainer}>
           <Text style={styles.roleLabel}>Role:</Text>

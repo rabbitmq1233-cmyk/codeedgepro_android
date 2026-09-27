@@ -9,28 +9,53 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api';
 import { LoadingScreen } from '../../components';
 import { COLORS, FONTS, SPACING, RADIUS, SHADOWS } from '../../config/theme';
-import type { Message } from '../../types';
+import type { Message, ProjectExpert } from '../../types';
 
 interface DisplayMessage extends Message {
   isStreaming?: boolean;
 }
 
 export function ChatDetailScreen({ route }: any) {
-  const { chatId } = route.params;
+  const { chatId, projectId } = route.params;
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  // Expert selection — REQUIRED before any message can be sent
+  // (backend expert_ids binding:"required,min=1"). Loaded from the chat's
+  // project assigned-expert list.
+  const [projectExperts, setProjectExperts] = useState<ProjectExpert[]>([]);
+  const [selectedExpertIds, setSelectedExpertIds] = useState<string[]>([]);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     loadMessages();
-  }, [chatId]);
+    loadProjectExperts();
+  }, [chatId, projectId]);
+
+  const loadProjectExperts = async () => {
+    try {
+      const project = await apiClient.getProjectDetails(projectId);
+      const active = (project.experts || []).filter((e) => e.is_active);
+      setProjectExperts(active);
+      // Default: select all assigned experts so the user can send immediately.
+      setSelectedExpertIds(active.map((e) => e.expert_id));
+    } catch (error) {
+      console.error('Failed to load project experts:', error);
+    }
+  };
+
+  const toggleExpert = (expertId: string) => {
+    setSelectedExpertIds((prev) =>
+      prev.includes(expertId) ? prev.filter((id) => id !== expertId) : [...prev, expertId]
+    );
+  };
 
   const loadMessages = async () => {
     try {
@@ -52,6 +77,9 @@ export function ChatDetailScreen({ route }: any) {
   const sendMessage = async () => {
     const text = inputText.trim();
     if (!text) return;
+    if (selectedExpertIds.length === 0) {
+      return; // Send is disabled in this state, but guard anyway.
+    }
 
     setIsSending(true);
     setInputText('');
@@ -59,16 +87,20 @@ export function ChatDetailScreen({ route }: any) {
     // Optimistically add user message
     const userMsg: DisplayMessage = {
       id: `temp-user-${Date.now()}`,
+      chat_id: chatId,
       role: 'user',
       content: text,
+      turn_number: 0,
       created_at: new Date().toISOString(),
     };
 
     // Add placeholder for streaming assistant response
     const assistantMsg: DisplayMessage = {
       id: `temp-assistant-${Date.now()}`,
+      chat_id: chatId,
       role: 'assistant',
       content: '',
+      turn_number: 0,
       isStreaming: true,
       created_at: new Date().toISOString(),
     };
@@ -79,52 +111,69 @@ export function ChatDetailScreen({ route }: any) {
     try {
       let streamedContent = '';
 
-      await apiClient.streamMessage(chatId, text, [], {
+      await apiClient.streamMessage(chatId, text, selectedExpertIds, {
         onChunk: (content: string) => {
+          // Incremental tokens — only sent when exactly 1 expert selected.
           streamedContent += content;
-          // Update the streaming message in place
           setMessages((prev) => {
             const updated = [...prev];
             const lastIdx = updated.length - 1;
             if (lastIdx >= 0 && updated[lastIdx].isStreaming) {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                content: streamedContent,
-              };
+              updated[lastIdx] = { ...updated[lastIdx], content: streamedContent };
             }
             return updated;
           });
           scrollToBottom();
         },
-        onMeta: (meta) => {
-          // Update the streaming message with token/cost info
+        onComplete: (data) => {
+          // Full expert answer. For multi-expert (no chunk streaming) this
+          // is the only place content arrives; for single-expert it
+          // overwrites the streamed text with the final, citation-backed
+          // version. When multiple experts respond, append extra bubbles.
           setMessages((prev) => {
             const updated = [...prev];
             const lastIdx = updated.length - 1;
-            if (lastIdx >= 0 && updated[lastIdx].isStreaming) {
+            if (lastIdx >= 0 && updated[lastIdx].isStreaming && streamedContent === '') {
+              // multi-expert / no stream: fill the placeholder with first answer
               updated[lastIdx] = {
                 ...updated[lastIdx],
-                tokens: meta.tokens,
-                cost_usd: meta.cost_usd,
+                content: data.content,
+                expert_id: data.expert_id,
+                confidence: data.confidence,
               };
+              streamedContent = data.content; // mark placeholder as used
+            } else if (streamedContent !== '' && updated[lastIdx]?.isStreaming) {
+              // single-expert: finalize streamed bubble with citation content
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                content: data.content || updated[lastIdx].content,
+                expert_id: data.expert_id,
+                confidence: data.confidence,
+              };
+            } else {
+              // additional experts → new bubbles
+              updated.push({
+                id: `expert-${data.expert_id}-${Date.now()}`,
+                chat_id: chatId,
+                role: 'assistant',
+                content: data.content,
+                turn_number: 0,
+                expert_id: data.expert_id,
+                confidence: data.confidence,
+                created_at: new Date().toISOString(),
+              });
             }
             return updated;
           });
+          scrollToBottom();
         },
-        onDone: (messageId: string) => {
-          // Finalize the streaming message
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (lastIdx >= 0 && updated[lastIdx].isStreaming) {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                id: messageId,
-                isStreaming: false,
-              };
-            }
-            return updated;
-          });
+        onDone: () => {
+          // Finalize: reload from server so persisted message_ids, tokens,
+          // cost and citations replace the optimistic placeholders.
+          setMessages((prev) =>
+            prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m))
+          );
+          loadMessages();
         },
         onError: (errorMsg: string) => {
           setMessages((prev) => {
@@ -205,14 +254,14 @@ export function ChatDetailScreen({ route }: any) {
             >
               {formatTime(item.created_at)}
             </Text>
-            {item.tokens != null && (
+            {item.tokens_used != null && item.tokens_used > 0 && (
               <Text
                 style={[
                   styles.tokenInfo,
                   isUser && styles.userTimeText,
                 ]}
               >
-                {item.tokens} tokens
+                {item.tokens_used} tokens
               </Text>
             )}
           </View>
@@ -247,24 +296,58 @@ export function ChatDetailScreen({ route }: any) {
           </View>
         }
       />
+      {/* Expert selection bar — at least one is required to send */}
+      {projectExperts.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.expertBar}
+          contentContainerStyle={styles.expertBarContent}
+        >
+          {projectExperts.map((exp) => {
+            const selected = selectedExpertIds.includes(exp.expert_id);
+            return (
+              <TouchableOpacity
+                key={exp.expert_id}
+                style={[styles.expertChip, selected && styles.expertChipSelected]}
+                onPress={() => toggleExpert(exp.expert_id)}
+              >
+                {selected && <Ionicons name="checkmark" size={13} color={COLORS.textInverse} />}
+                <Text style={[styles.expertChipText, selected && styles.expertChipTextSelected]}>
+                  {exp.expert_name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : (
+        <View style={styles.noExpertBar}>
+          <Text style={styles.noExpertText}>
+            No experts assigned to this project — add experts before chatting.
+          </Text>
+        </View>
+      )}
       <View style={styles.inputArea}>
         <TextInput
           style={styles.input}
-          placeholder="Type your message..."
+          placeholder={
+            selectedExpertIds.length === 0 ? 'Select an expert first...' : 'Type your message...'
+          }
           placeholderTextColor={COLORS.textTertiary}
           value={inputText}
           onChangeText={setInputText}
-          editable={!isSending}
+          editable={!isSending && selectedExpertIds.length > 0}
           multiline
           maxLength={5000}
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            (!inputText.trim() || isSending) && styles.sendButtonDisabled,
+            (!inputText.trim() || isSending || selectedExpertIds.length === 0) &&
+              styles.sendButtonDisabled,
           ]}
           onPress={sendMessage}
-          disabled={isSending || !inputText.trim()}
+          disabled={isSending || !inputText.trim() || selectedExpertIds.length === 0}
         >
           {isSending ? (
             <ActivityIndicator size="small" color={COLORS.textInverse} />
@@ -350,6 +433,53 @@ const styles = StyleSheet.create({
     color: COLORS.textTertiary,
     textAlign: 'center',
     paddingHorizontal: SPACING.xxl,
+  },
+  expertBar: {
+    maxHeight: 44,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    backgroundColor: COLORS.surface,
+  },
+  expertBarContent: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.sm,
+    alignItems: 'center',
+  },
+  expertChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+  expertChipSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  expertChipText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+  },
+  expertChipTextSelected: {
+    color: COLORS.textInverse,
+    fontWeight: '600',
+  },
+  noExpertBar: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  noExpertText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.warning,
+    textAlign: 'center',
   },
   inputArea: {
     flexDirection: 'row',

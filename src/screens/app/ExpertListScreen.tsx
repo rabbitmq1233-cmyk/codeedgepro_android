@@ -26,7 +26,7 @@ export function ExpertListScreen({ navigation }: any) {
   const loadExperts = async () => {
     try {
       setIsLoading(true);
-      const data = await apiClient.getExperts(0, 20);
+      const data = await apiClient.getExperts();
       setExperts(data);
     } catch (error) {
       console.error('Failed to load experts:', error);
@@ -38,7 +38,7 @@ export function ExpertListScreen({ navigation }: any) {
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const data = await apiClient.getExperts(0, 20);
+      const data = await apiClient.getExperts();
       setExperts(data);
     } finally {
       setIsRefreshing(false);
@@ -60,8 +60,8 @@ export function ExpertListScreen({ navigation }: any) {
           {item.description}
         </Text>
         <View style={styles.expertMeta}>
-          <Text style={styles.rating}>⭐ {item.rating?.toFixed(1) || 'N/A'}</Text>
-          <Text style={styles.version}>{item.version}</Text>
+          <Text style={styles.rating}>⭐ {item.avg_rating?.toFixed(1) || 'N/A'}</Text>
+          <Text style={styles.version}>{item.domain} · {item.total_topics} topics</Text>
         </View>
       </View>
     </TouchableOpacity>

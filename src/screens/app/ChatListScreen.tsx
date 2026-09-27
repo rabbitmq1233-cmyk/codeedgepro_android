@@ -60,6 +60,7 @@ export function ChatListScreen({ route, navigation }: any) {
         navigation.navigate('ChatDetail', {
           chatId: item.id,
           chatTitle: item.title,
+          projectId,
         })
       }
     >

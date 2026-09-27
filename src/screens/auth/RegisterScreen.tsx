@@ -34,7 +34,12 @@ export function RegisterScreen({ navigation }: any) {
     try {
       await register(email, password, name);
     } catch (err: any) {
-      Alert.alert('Registration Failed', error || 'Please try again');
+      Alert.alert(
+        'Registration Failed',
+        err?.message ||
+          error ||
+          'Self-registration may be disabled — contact your administrator for an account.'
+      );
     }
   };
 
